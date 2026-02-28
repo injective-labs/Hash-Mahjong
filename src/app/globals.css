@@ -1384,3 +1384,28 @@ body {
   background: #4c3af9 !important;
   color: #fff !important;
 }
+
+/* ── INJ Pass button & error (popup-based connect) ──────────────────────── */
+.injpass-btn {
+  background: #1a0e6e;
+  border-color: #4c3af9 !important;
+  color: #a0a0ff;
+}
+.injpass-btn:hover:not(:disabled) { background: #251480; color: #d0d0ff; }
+.injpass-btn-active { background: #4c3af9 !important; color: #fff !important; }
+.injpass-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.injpass-connect-error {
+  position: absolute;
+  top: 56px;
+  left: 0;
+  right: 0;
+  margin: 0 16px;
+  background: rgba(220, 38, 38, 0.15);
+  border: 2px solid #dc2626;
+  color: #fca5a5;
+  font-size: 7px;
+  padding: 8px 12px;
+  line-height: 1.8;
+  text-align: center;
+}

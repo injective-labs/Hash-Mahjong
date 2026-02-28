@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wallet, parseEther } from 'ethers';
-import { BrowserProvider } from 'ethers';
+import { BrowserProvider, parseEther } from 'ethers';
 import Header from '@/components/Header';
 import Background from '@/components/Background';
 import HashDisplay from '@/components/HashDisplay';
 import Modal, { ModalType } from '@/components/Modal';
-import InjPassModal from '@/components/InjPassModal';
 import { evaluate } from '@/lib/rules';
 import { PlayRecord, Tasks } from '@/lib/types';
 import {
@@ -25,7 +23,12 @@ import {
   escapeHtml,
   switchToInjective,
 } from '@/lib/wallet';
-import { createInjPassWallet, normalisePrivateKey } from '@/lib/injpass';
+import {
+  openInjPassPopup,
+  signTxViaInjPass,
+  disconnectInjPass,
+  isInjPassConnected,
+} from '@/lib/injpass';
 
 declare global {
   interface Window {
@@ -36,7 +39,6 @@ declare global {
   }
 }
 
-/** Which wallet mode is active */
 type WalletMode = 'metamask' | 'injpass' | null;
 
 export default function Home() {
@@ -47,11 +49,10 @@ export default function Home() {
   const [netBlink, setNetBlink] = useState(false);
   const [netClickable, setNetClickable] = useState(false);
   const [walletMode, setWalletMode] = useState<WalletMode>(null);
-  const [injPassWallet, setInjPassWallet] = useState<Wallet | null>(null);
 
-  // ── INJ Pass modal ────────────────────────────────────────────────────────
-  const [showInjPassModal, setShowInjPassModal] = useState(false);
-  const [injPassError, setInjPassError] = useState('');
+  // INJ Pass connecting state
+  const [injPassConnecting, setInjPassConnecting] = useState(false);
+  const [injPassConnectError, setInjPassConnectError] = useState('');
 
   // ── Game state ────────────────────────────────────────────────────────────
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -83,12 +84,10 @@ export default function Home() {
     setTasks(initTasks(savedTasks));
   }, []);
 
-  // ── Network refresh (MetaMask only) ───────────────────────────────────────
+  // ── Network refresh (MetaMask) ────────────────────────────────────────────
   const refreshRef = useRef<() => void>(() => {});
 
   const refreshNetworkAndAccount = useCallback(async () => {
-    if (walletMode === 'injpass') return; // INJ Pass manages its own state
-
     if (typeof window === 'undefined' || !window.ethereum) {
       setNetLabel('NO WALLET');
       setNetBlink(false);
@@ -123,7 +122,7 @@ export default function Home() {
     } catch {
       setStatusMsg('STATUS: NOT CONNECTED');
     }
-  }, [walletMode]);
+  }, []);
 
   useEffect(() => {
     refreshRef.current = refreshNetworkAndAccount;
@@ -133,7 +132,7 @@ export default function Home() {
     refreshNetworkAndAccount();
     if (window.ethereum?.on) {
       window.ethereum.on('accountsChanged', () => refreshRef.current());
-      window.ethereum.on('chainChanged', () => refreshRef.current());
+      window.ethereum.on('chainChanged',    () => refreshRef.current());
     }
   }, [refreshNetworkAndAccount]);
 
@@ -148,8 +147,8 @@ export default function Home() {
     });
   }, []);
 
-  // ── MetaMask Connect / Disconnect ─────────────────────────────────────────
-  const connect = async () => {
+  // ── MetaMask connect / disconnect ─────────────────────────────────────────
+  const connectMetaMask = async () => {
     if (!window.ethereum) { setStatusMsg('STATUS: NO WALLET FOUND'); return; }
     try {
       const provider = new BrowserProvider(window.ethereum);
@@ -163,38 +162,42 @@ export default function Home() {
   };
 
   const disconnect = () => {
+    if (walletMode === 'injpass') disconnectInjPass();
     setAddress(null);
     setWalletMode(null);
-    setInjPassWallet(null);
-    setNetLabel('NO WALLET');
+    setNetLabel('—');
     setNetBlink(false);
     setOnRightChain(false);
     setPlayBtnText('PLAY');
     setStatusMsg('STATUS: DISCONNECTED');
   };
 
-  // ── INJ Pass Connect ──────────────────────────────────────────────────────
-  const handleInjPassConnect = (privateKey: string) => {
-    setInjPassError('');
+  // ── INJ Pass connect (popup) ──────────────────────────────────────────────
+  const connectInjPass = async () => {
+    setInjPassConnectError('');
+    setInjPassConnecting(true);
+    setStatusMsg('STATUS: OPENING INJ PASS…');
     try {
-      const wallet = createInjPassWallet(privateKey);
-      setInjPassWallet(wallet);
-      setAddress(wallet.address);
+      const addr = await openInjPassPopup();
+      setAddress(addr);
       setWalletMode('injpass');
-      setOnRightChain(true); // local wallet always targets the right chain
-      setNetLabel('INJ PASS');
+      setOnRightChain(true);
+      setNetLabel('λ INJ PASS');
       setNetBlink(true);
       setNetClickable(false);
-      setShowInjPassModal(false);
       setStatusMsg('STATUS: READY (INJ PASS)');
     } catch (e) {
-      setInjPassError((e as Error)?.message || 'Invalid private key');
+      const msg = (e as Error)?.message || String(e);
+      setInjPassConnectError(msg);
+      setStatusMsg(`STATUS: ${msg}`);
+    } finally {
+      setInjPassConnecting(false);
     }
   };
 
-  // ── Switch Network (MetaMask only) ────────────────────────────────────────
+  // ── Switch network (MetaMask only) ────────────────────────────────────────
   const handleSwitchNetwork = async () => {
-    if (walletMode === 'injpass') return; // always on correct chain
+    if (walletMode === 'injpass') return;
     try {
       await switchToInjective();
       await refreshNetworkAndAccount();
@@ -218,26 +221,21 @@ export default function Home() {
       let txHashStr: string;
       let chainId: bigint;
 
-      if (walletMode === 'injpass' && injPassWallet) {
-        // ── INJ Pass path ────────────────────────────────────────────────────
-        setStatusMsg('STATUS: SENDING TX...');
-        const tx = await injPassWallet.sendTransaction({
-          to: GAME_TO_ADDRESS,
-          value: parseEther(PLAY_COST_ETH),
-        });
-        txHashStr = tx.hash;
+      if (walletMode === 'injpass') {
+        // ── INJ Pass path (popup signs the tx) ──────────────────────────────
+        if (!isInjPassConnected()) {
+          setStatusMsg('STATUS: INJ PASS DISCONNECTED - RECONNECT');
+          return;
+        }
+        setStatusMsg('STATUS: WAITING FOR INJ PASS CONFIRMATION…');
+        txHashStr = await signTxViaInjPass(GAME_TO_ADDRESS, PLAY_COST_ETH);
         chainId = CHAIN.chainId;
-        setTxHash(txHashStr);
-        setTxLink(buildExplorerTxLink(txHashStr));
-        setStatusMsg('STATUS: PENDING...');
-        await tx.wait();
       } else {
         // ── MetaMask path ────────────────────────────────────────────────────
         if (!window.ethereum) return;
         const provider = new BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
         const net = await provider.getNetwork();
-
         if (net.chainId !== CHAIN.chainId) {
           setStatusMsg(`STATUS: WRONG NETWORK - CLICK TO SWITCH TO ${CHAIN.name}`);
           setPlayBtnText('PLAY');
@@ -256,9 +254,12 @@ export default function Home() {
         await tx.wait();
       }
 
+      setTxHash(txHashStr);
+      setTxLink(buildExplorerTxLink(txHashStr));
+      setStatusMsg('STATUS: CONFIRMED');
+
       const s10 = txHashStr.replace(/^0x/i, '').slice(-10).toLowerCase();
       setSeed10(s10);
-
       const rule = evaluate(s10);
       setCurrentRule(rule);
       setTilesVisible(true);
@@ -293,13 +294,13 @@ export default function Home() {
 
       setTasks((prev) => {
         const updated: Tasks = {
-          daily: { ...prev.daily, progress: { ...prev.daily.progress } },
+          daily:  { ...prev.daily,  progress: { ...prev.daily.progress  } },
           weekly: { ...prev.weekly, progress: { ...prev.weekly.progress } },
         };
         updated.daily.progress.playCount++;
         updated.weekly.progress.playCount++;
         if (rule) { updated.daily.progress.winCount++; updated.weekly.progress.winCount++; }
-        updated.daily.progress.totalExp += expGain;
+        updated.daily.progress.totalExp  += expGain;
         updated.weekly.progress.totalExp += expGain;
 
         let bonusExp = 0;
@@ -309,12 +310,12 @@ export default function Home() {
           let current = 0;
           switch (task.id) {
             case 'daily_play_1':
-            case 'daily_play_5':   current = updated.daily.progress.playCount; break;
-            case 'daily_win_1':    current = updated.daily.progress.winCount; break;
-            case 'daily_exp_100':  current = updated.daily.progress.totalExp; break;
+            case 'daily_play_5':   current = updated.daily.progress.playCount;  break;
+            case 'daily_win_1':    current = updated.daily.progress.winCount;   break;
+            case 'daily_exp_100':  current = updated.daily.progress.totalExp;   break;
             case 'weekly_play_20': current = updated.weekly.progress.playCount; break;
-            case 'weekly_win_5':   current = updated.weekly.progress.winCount; break;
-            case 'weekly_exp_500': current = updated.weekly.progress.totalExp; break;
+            case 'weekly_win_5':   current = updated.weekly.progress.winCount;  break;
+            case 'weekly_exp_500': current = updated.weekly.progress.totalExp;  break;
           }
           if (current >= task.target) {
             updated[task.type] = {
@@ -331,7 +332,7 @@ export default function Home() {
       });
 
       setPlayBtnText('PLAY AGAIN');
-      setStatusMsg(walletMode === 'injpass' ? 'STATUS: DONE (INJ PASS)' : 'STATUS: DONE');
+      setStatusMsg('STATUS: DONE');
     } catch (e) {
       setStatusMsg(`STATUS: PLAY FAILED - ${escapeHtml((e as Error)?.message || String(e))}`);
       setPlayBtnText((prev) => (prev !== 'PLAY AGAIN' ? 'PLAY' : prev));
@@ -365,23 +366,33 @@ export default function Home() {
               SWITCH NET
             </button>
 
-            {/* MetaMask connect/disconnect */}
+            {/* MetaMask — hidden when INJ Pass is active */}
             {walletMode !== 'injpass' && (
-              <button className="btn" onClick={address ? disconnect : connect}>
+              <button className="btn" onClick={address ? disconnect : connectMetaMask}>
                 {address && walletMode === 'metamask' ? 'DISCONNECT' : 'CONNECT'}
               </button>
             )}
 
-            {/* INJ Pass button */}
+            {/* INJ Pass — hidden when MetaMask is active */}
             {walletMode !== 'metamask' && (
               <button
                 className={`btn injpass-btn${walletMode === 'injpass' ? ' injpass-btn-active' : ''}`}
-                onClick={walletMode === 'injpass' ? disconnect : () => { setInjPassError(''); setShowInjPassModal(true); }}
+                onClick={walletMode === 'injpass' ? disconnect : connectInjPass}
+                disabled={injPassConnecting}
               >
-                {walletMode === 'injpass' ? 'λ DISCONNECT' : 'λ INJ PASS'}
+                {injPassConnecting
+                  ? 'OPENING…'
+                  : walletMode === 'injpass'
+                    ? 'λ DISCONNECT'
+                    : 'λ INJ PASS'}
               </button>
             )}
           </div>
+
+          {/* INJ Pass connect error */}
+          {injPassConnectError && (
+            <div className="injpass-connect-error">{injPassConnectError}</div>
+          )}
 
           {/* Connection Info */}
           <div className="connect-info" style={{ marginTop: '57px' }}>
@@ -398,16 +409,12 @@ export default function Home() {
               <span className="mono">{address ? shortAddr(address) : '—'}</span>
             </div>
             <div className="button-group">
-              <div className="info-badge btn rules-btn" onClick={() => setModalType('rules')}>
-                RULES
-              </div>
-              <div className="info-badge btn tasks-btn" onClick={() => setModalType('tasks')}>
-                TASKS
-              </div>
+              <div className="info-badge btn rules-btn" onClick={() => setModalType('rules')}>RULES</div>
+              <div className="info-badge btn tasks-btn" onClick={() => setModalType('tasks')}>TASKS</div>
             </div>
           </div>
 
-          {/* Hash / Tiles Display */}
+          {/* Hash / Tiles */}
           <HashDisplay
             txHash={txHash}
             txLink={txLink}
@@ -430,7 +437,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Game modals */}
       <Modal
         type={modalType}
         history={history}
@@ -438,15 +444,6 @@ export default function Home() {
         onClose={() => setModalType(null)}
         onOpen={(t) => setModalType(t)}
       />
-
-      {/* INJ Pass connect modal */}
-      {showInjPassModal && (
-        <InjPassModal
-          onConnect={handleInjPassConnect}
-          onClose={() => setShowInjPassModal(false)}
-          error={injPassError}
-        />
-      )}
     </>
   );
 }
