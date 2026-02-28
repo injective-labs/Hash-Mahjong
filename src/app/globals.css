@@ -1233,3 +1233,154 @@ body {
   box-shadow: 0 2px 0 var(--mario-red-dark), inset 0 2px 0 rgba(255,255,255,0.3);
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--mario-red-dark); }
+
+/* ── INJ Pass Modal ──────────────────────────────────────────────────────── */
+.injpass-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.injpass-modal {
+  background: #1a1a2e;
+  border: 4px solid var(--border);
+  border-radius: 0;
+  box-shadow:
+    0 8px 0 #0d0d1a,
+    0 8px 0 var(--border),
+    10px 10px 0 var(--shadow-lg);
+  width: 100%;
+  max-width: 440px;
+  padding: 0;
+  font-family: 'Press Start 2P', monospace;
+}
+
+.injpass-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #4c3af9;
+  border-bottom: 4px solid var(--border);
+  padding: 14px 18px;
+}
+
+.injpass-logo {
+  font-size: 12px;
+  color: #fff;
+  letter-spacing: 1px;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+}
+
+.injpass-close-btn {
+  background: none;
+  border: 2px solid rgba(255,255,255,0.4);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 4px 8px;
+  transition: background 0.15s;
+}
+.injpass-close-btn:hover { background: rgba(255,255,255,0.15); }
+
+.injpass-desc {
+  font-size: 8px;
+  color: #aaa;
+  line-height: 1.9;
+  padding: 18px 18px 12px;
+}
+
+.injpass-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 0 18px;
+}
+
+.injpass-input {
+  flex: 1;
+  background: #0d0d1a;
+  border: 3px solid #4c3af9;
+  color: #e0e0ff;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  box-shadow: inset 0 2px 0 rgba(0,0,0,0.3);
+}
+.injpass-input:focus { border-color: #7c6bff; }
+.injpass-input::placeholder { color: #555; }
+
+.injpass-eye-btn {
+  background: #222;
+  border: 3px solid #555;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 8px 10px;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.injpass-eye-btn:hover { background: #333; }
+
+.injpass-error {
+  font-size: 7px;
+  color: var(--error);
+  padding: 8px 18px 0;
+  line-height: 1.7;
+}
+
+.injpass-btn-row {
+  display: flex;
+  gap: 10px;
+  padding: 16px 18px;
+}
+
+.injpass-cancel-btn {
+  background: #333;
+  flex: 1;
+}
+.injpass-cancel-btn:hover:not(:disabled) { background: #444; }
+
+.injpass-connect-btn {
+  background: #4c3af9;
+  flex: 2;
+  box-shadow:
+    0 6px 0 #2a1fa0,
+    0 6px 0 var(--border),
+    6px 6px 0 var(--shadow);
+}
+.injpass-connect-btn:hover:not(:disabled) { background: #5a49ff; }
+.injpass-connect-btn:disabled { background: #2a2a4a; color: #555; cursor: not-allowed; box-shadow: none; }
+
+.injpass-notice {
+  font-size: 7px;
+  color: var(--warning);
+  padding: 0 18px 16px;
+  line-height: 1.8;
+  border-top: 2px solid #333;
+  padding-top: 12px;
+  margin-top: 0;
+}
+
+/* INJ Pass connect button */
+.injpass-btn {
+  background: #1a0e6e;
+  border-color: #4c3af9 !important;
+  color: #a0a0ff;
+  position: relative;
+}
+.injpass-btn:hover:not(:disabled) {
+  background: #251480;
+  color: #d0d0ff;
+}
+.injpass-btn-active {
+  background: #4c3af9 !important;
+  color: #fff !important;
+}
