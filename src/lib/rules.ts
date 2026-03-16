@@ -15,7 +15,7 @@ export const TILE_MAP: Record<string, { emoji: string; name: string }> = {
   b: { emoji: '🀑', name: '2 of Bamboos' },
   c: { emoji: '🀒', name: '3 of Bamboos' },
   d: { emoji: '🀓', name: '4 of Bamboos' },
-  e: { emoji: '🀄', name: 'Red Dragon' },
+  e: { emoji: '🀄︎', name: 'Red Dragon' },
   f: { emoji: '🀅', name: 'Green Dragon' },
 };
 

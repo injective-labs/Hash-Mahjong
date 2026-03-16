@@ -53,6 +53,9 @@ export default function Home() {
   // INJ Pass connecting state
   const [injPassConnecting, setInjPassConnecting] = useState(false);
   const [injPassConnectError, setInjPassConnectError] = useState('');
+  const [injPassErrorVisible, setInjPassErrorVisible] = useState(false);
+  const injPassErrorHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const injPassErrorClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Game state ────────────────────────────────────────────────────────────
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -83,6 +86,43 @@ export default function Home() {
     setHistory(savedHistory);
     setTasks(initTasks(savedTasks));
   }, []);
+
+  useEffect(() => {
+    if (injPassErrorHideTimer.current) {
+      clearTimeout(injPassErrorHideTimer.current);
+      injPassErrorHideTimer.current = null;
+    }
+    if (injPassErrorClearTimer.current) {
+      clearTimeout(injPassErrorClearTimer.current);
+      injPassErrorClearTimer.current = null;
+    }
+
+    if (!injPassConnectError) {
+      setInjPassErrorVisible(false);
+      return;
+    }
+
+    setInjPassErrorVisible(true);
+
+    injPassErrorHideTimer.current = setTimeout(() => {
+      setInjPassErrorVisible(false);
+    }, 3000);
+
+    injPassErrorClearTimer.current = setTimeout(() => {
+      setInjPassConnectError('');
+    }, 3400);
+
+    return () => {
+      if (injPassErrorHideTimer.current) {
+        clearTimeout(injPassErrorHideTimer.current);
+        injPassErrorHideTimer.current = null;
+      }
+      if (injPassErrorClearTimer.current) {
+        clearTimeout(injPassErrorClearTimer.current);
+        injPassErrorClearTimer.current = null;
+      }
+    };
+  }, [injPassConnectError]);
 
   // ── Network refresh (MetaMask) ────────────────────────────────────────────
   const refreshRef = useRef<() => void>(() => {});
@@ -343,6 +383,16 @@ export default function Home() {
   };
 
   const playDisabled = playing || !address || !onRightChain;
+  const networkHint = !address
+    ? 'Connect a wallet first'
+    : netClickable
+      ? 'Tap to switch to Injective EVM'
+      : 'Ready on Injective EVM';
+  const walletHint = walletMode === 'injpass'
+    ? 'Connected with INJ Pass'
+    : walletMode === 'metamask'
+      ? 'Connected with MetaMask'
+      : 'Choose your wallet';
 
   return (
     <>
@@ -351,70 +401,74 @@ export default function Home() {
         <Header totalExp={totalExp} onMenuClick={() => setModalType('menu')} />
 
         <div className="main-card">
-          {/* Status top-left */}
-          <div className="status-top-left">
-            <div className="status-text">{statusMsg}</div>
-          </div>
-
-          {/* Connect buttons top-right */}
-          <div className="connect-btn-top">
-            <button
-              className="btn"
-              disabled={onRightChain || walletMode === 'injpass'}
-              onClick={handleSwitchNetwork}
-            >
-              SWITCH NET
-            </button>
-
-            {/* MetaMask — hidden when INJ Pass is active */}
-            {walletMode !== 'injpass' && (
-              <button className="btn" onClick={address ? disconnect : connectMetaMask}>
-                {address && walletMode === 'metamask' ? 'DISCONNECT' : 'CONNECT'}
-              </button>
-            )}
-
-            {/* INJ Pass — hidden when MetaMask is active */}
-            {walletMode !== 'metamask' && (
-              <button
-                className={`btn injpass-btn${walletMode === 'injpass' ? ' injpass-btn-active' : ''}`}
-                onClick={walletMode === 'injpass' ? disconnect : connectInjPass}
-                disabled={injPassConnecting}
-              >
-                {injPassConnecting
-                  ? 'OPENING…'
-                  : walletMode === 'injpass'
-                    ? 'λ DISCONNECT'
-                    : 'λ INJ PASS'}
-              </button>
-            )}
-          </div>
-
-          {/* INJ Pass connect error */}
+          <span className="sr-only" aria-live="polite">{statusMsg}</span>
           {injPassConnectError && (
-            <div className="injpass-connect-error">{injPassConnectError}</div>
+            <div
+              className={`injpass-connect-error${injPassErrorVisible ? ' is-visible' : ''}`}
+              role="status"
+              aria-live="polite"
+            >
+              {injPassConnectError}
+            </div>
           )}
 
-          {/* Connection Info */}
-          <div className="connect-info" style={{ marginTop: '57px' }}>
-            <div className="info-badge">
-              <span
-                className={`mono${netBlink ? ' net-name-blink' : ''}`}
-                style={{ cursor: netClickable ? 'pointer' : 'default', textDecoration: netClickable ? 'underline' : 'none' }}
-                onClick={netClickable ? handleSwitchNetwork : undefined}
-              >
+          <div className="connect-info">
+            <button
+              className={`info-badge info-button network-badge${netClickable ? ' is-clickable' : ''}`}
+              type="button"
+              disabled={!netClickable}
+              onClick={handleSwitchNetwork}
+            >
+              <span className="info-caption">Network</span>
+              <span className={`mono info-primary${netBlink ? ' net-name-blink' : ''}`}>
                 {netLabel}
               </span>
+              <span className="info-meta">{networkHint}</span>
+            </button>
+            <div className="info-badge wallet-badge">
+              <span className="info-caption">Wallet</span>
+              <span className="mono info-primary">{address ? shortAddr(address) : 'Not Connected'}</span>
+              <span className="info-meta">{walletHint}</span>
+              <div className="wallet-actions">
+                {walletMode !== 'injpass' && (
+                  <button className="inline-btn" type="button" onClick={address ? disconnect : connectMetaMask}>
+                    {address && walletMode === 'metamask' ? 'Disconnect' : 'MetaMask'}
+                  </button>
+                )}
+                {walletMode !== 'metamask' && (
+                  <button
+                    className={`inline-btn injpass-inline-btn${walletMode === 'injpass' ? ' is-active' : ''}`}
+                    type="button"
+                    onClick={walletMode === 'injpass' ? disconnect : connectInjPass}
+                    disabled={injPassConnecting}
+                  >
+                    {injPassConnecting
+                      ? 'Opening...'
+                      : walletMode === 'injpass'
+                        ? 'Disconnect'
+                        : 'INJ Pass'}
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="info-badge">
-              <span className="mono">{address ? shortAddr(address) : '—'}</span>
-            </div>
-            <div className="button-group">
-              <div className="info-badge btn rules-btn" onClick={() => setModalType('rules')}>RULES</div>
-              <div className="info-badge btn tasks-btn" onClick={() => setModalType('tasks')}>TASKS</div>
-            </div>
+            <button
+              className="info-badge info-action compact-badge rules-btn"
+              type="button"
+              onClick={() => setModalType('rules')}
+            >
+              <span className="info-caption">Reference</span>
+              <span className="info-action-label">Rulebook</span>
+            </button>
+            <button
+              className="info-badge info-action compact-badge tasks-btn"
+              type="button"
+              onClick={() => setModalType('tasks')}
+            >
+              <span className="info-caption">Progress</span>
+              <span className="info-action-label">Quest Log</span>
+            </button>
           </div>
 
-          {/* Hash / Tiles */}
           <HashDisplay
             txHash={txHash}
             txLink={txLink}
@@ -423,16 +477,15 @@ export default function Home() {
             tilesVisible={tilesVisible}
           />
 
-          {/* Play Button */}
           <div className="play-btn-container">
-            <button className="btn" disabled={playDisabled} onClick={play}>
-              {playing ? 'PLAYING...' : playBtnText}
+            <button className="btn" type="button" disabled={playDisabled} onClick={play}>
+              {playing ? 'Playing...' : playBtnText}
             </button>
           </div>
 
-          {/* Result */}
           <div className="result-display">
-            <div className={resultClass}>{resultMsg}</div>
+            <span className="section-label">Latest Result</span>
+            <div className={resultClass} aria-live="polite">{resultMsg}</div>
           </div>
         </div>
       </div>

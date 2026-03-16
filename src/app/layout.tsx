@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Hash Mahjong — Injective EVM Mini Game',
   description: 'A blockchain-based Mahjong game on Injective EVM',
-  other: { 'theme-color': '#ffffff' },
+  other: { 'theme-color': '#2b170d' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

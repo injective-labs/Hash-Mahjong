@@ -23,8 +23,8 @@ function TileCard({ char, isMatch }: { char: string; isMatch: boolean }) {
 
 function EmptyTile() {
   return (
-    <div className="tile">
-      <div className="tile-code">&nbsp;</div>
+    <div className="tile tile-empty">
+      <div className="tile-placeholder" />
     </div>
   );
 }
@@ -42,37 +42,48 @@ export default function HashDisplay({ txHash, txLink, seed10, rule, tilesVisible
   );
 
   const tilesContent = txLink ? (
-    <a href={txLink} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'contents' }}>
+    <a className="tile-link" href={txLink} target="_blank" rel="noreferrer">
       {tiles}
     </a>
   ) : tiles;
 
   return (
     <>
-      {/* Hash Display (before play — shown as tiles in the hash-value box) */}
       {!tilesVisible && (
         <div className="hash-display">
-          <div className="hash-label">TRANSACTION HASH</div>
-          <div className="hash-value">
-            {tilesContent}
+          <div className="board-label-row">
+            <div className="hash-label">Transaction Hash</div>
+            {seed10 && (
+              <div className="hash-seed">Seed 10: {seed10.toUpperCase()}</div>
+            )}
           </div>
-          {seed10 && (
-            <div className="hash-seed">SEED10: {seed10.toUpperCase()}</div>
-          )}
+          <div className="hash-value">
+            <div className="tile-grid">
+              {tilesContent}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Tiles Container (shown after play) */}
       {tilesVisible && (
         <div className="tiles-container" id="tiles">
-          <span className="tiles-hash-label">TRANSACTION HASH</span>
-          {seed ? (
-            seed.split('').map((ch, i) => (
-              <TileCard key={i} char={ch} isMatch={matches[i]} />
-            ))
-          ) : (
-            Array.from({ length: 10 }, (_, i) => <EmptyTile key={i} />)
-          )}
+          <div className="board-label-row">
+            <span className="tiles-hash-label">Transaction Hash</span>
+            {seed10 && (
+              <div className="hash-seed">Seed 10: {seed10.toUpperCase()}</div>
+            )}
+          </div>
+          <div className="hash-value">
+            <div className="tile-grid">
+              {seed ? (
+                seed.split('').map((ch, i) => (
+                  <TileCard key={i} char={ch} isMatch={matches[i]} />
+                ))
+              ) : (
+                Array.from({ length: 10 }, (_, i) => <EmptyTile key={i} />)
+              )}
+            </div>
+          </div>
         </div>
       )}
     </>

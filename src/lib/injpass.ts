@@ -10,7 +10,7 @@
  *   popup → opener : { type: 'INJPASS_TX_RESULT', id, txHash?, error? }
  */
 
-const INJPASS_ORIGIN = 'https://inj-pass-frontend-nfc.vercel.app';
+const INJPASS_ORIGIN = 'https://www.injpass.com';
 const POPUP_W = 420;
 const POPUP_H = 660;
 const TX_TIMEOUT_MS = 120_000;
@@ -28,7 +28,7 @@ function popupOptions() {
 export function openInjPassPopup(): Promise<string> {
   return new Promise((resolve, reject) => {
     const connectUrl =
-      `${INJPASS_ORIGIN}/connect?origin=${encodeURIComponent(window.location.origin)}`;
+      `${INJPASS_ORIGIN}/embed?origin=${encodeURIComponent(window.location.origin)}`;
 
     popup = window.open(connectUrl, 'injpass_popup', popupOptions());
 

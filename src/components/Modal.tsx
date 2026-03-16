@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { RULES, generateExampleForRule, getMatchingPositions } from '@/lib/rules';
 import { TASK_LIST, getTaskCurrent } from '@/lib/tasks';
 import { PlayRecord, Tasks } from '@/lib/types';
@@ -17,170 +17,193 @@ interface ModalProps {
 
 function RulesContent() {
   return (
-    <>
-      {RULES.map((r) => {
-        const exampleSeed = generateExampleForRule(r.id);
-        const matches = getMatchingPositions(r, exampleSeed);
+    <div className="modal-stack">
+      {RULES.map((rule) => {
+        const exampleSeed = generateExampleForRule(rule.id);
+        const matches = getMatchingPositions(rule, exampleSeed);
+
         return (
-          <div key={r.id} style={{ margin: '15px 0', padding: '16px', background: 'var(--cloud)', border: '3px solid var(--border)', borderRadius: 0, boxShadow: '0 4px 0 var(--mario-brown-dark), 0 4px 0 var(--border), 4px 4px 0 var(--shadow)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-              <div style={{ flex: 1 }}>
-                <b style={{ color: 'var(--mario-red)', textShadow: '1px 1px 0 var(--border)' }}>
-                  #{r.id} {r.name}
-                </b>{' '}
-                <span style={{ color: 'var(--mario-blue)' }}>({r.payout})</span>
-                <br />
-                <span style={{ color: 'var(--text)', fontSize: '8px' }}>{r.desc}</span>
+          <article key={rule.id} className="rule-card">
+            <div className="rule-card-header">
+              <div className="rule-card-copy">
+                <span className="rule-card-index">Rule #{rule.id}</span>
+                <h3 className="rule-card-title">{rule.name}</h3>
+                <p className="rule-card-desc">{rule.desc}</p>
               </div>
-              <span style={{ color: 'var(--mario-green)', fontSize: '16px', marginLeft: '10px', textShadow: '1px 1px 0 var(--border)' }}>✓</span>
+              <span className="rule-card-payout">{rule.payout}</span>
             </div>
-            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>Example:</span>
-              <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-                {exampleSeed.split('').map((ch, i) => {
-                  const isMatch = matches[i];
-                  return isMatch ? (
-                    <span key={i} className="hash-char seed" style={{ display: 'inline-block', width: '22px', height: '29px', lineHeight: '29px', textAlign: 'center', border: '2px solid var(--border)', background: 'linear-gradient(180deg, var(--mario-green) 0%, #2d9f4a 100%)', color: '#fff', fontSize: '16.5px', margin: '0 2px' }}>
-                      {ch.toUpperCase()}
-                    </span>
-                  ) : (
-                    <span key={i} className="hash-char prefix" style={{ display: 'inline-block', width: '22px', height: '29px', lineHeight: '29px', textAlign: 'center', border: '2px solid var(--border)', background: 'linear-gradient(180deg, #d0d0d0 0%, #a0a0a0 100%)', color: '#505050', fontSize: '16.5px', margin: '0 2px' }}>
-                      {ch.toUpperCase()}
-                    </span>
-                  );
-                })}
+
+            <div className="rule-card-example">
+              <span className="rule-card-label">Example Hand</span>
+              <div className="rule-card-seed">
+                {exampleSeed.split('').map((char, index) => (
+                  <span key={index} className={`modal-char${matches[index] ? ' match' : ''}`}>
+                    {char.toUpperCase()}
+                  </span>
+                ))}
               </div>
             </div>
-          </div>
+          </article>
         );
       })}
-    </>
+    </div>
   );
 }
 
 function HistoryContent({ history }: { history: PlayRecord[] }) {
   if (history.length === 0) {
-    return <p style={{ textAlign: 'center', color: 'var(--text)' }}>NO RECORDS YET</p>;
+    return <p className="empty-state">No records yet. Your played hands will appear here.</p>;
   }
+
   return (
-    <>
-      {history.slice().reverse().map((item, idx) => {
+    <div className="modal-stack">
+      {history.slice().reverse().map((item, index) => {
         const date = new Date(item.timestamp);
+
         return (
-          <div key={idx} className="history-item">
+          <article key={`${item.txHash}-${item.timestamp}`} className="history-item">
             <div className="history-item-header">
-              <span>#{history.length - idx}</span>
-              <span>{date.toLocaleString()}</span>
+              <span className="history-index">#{history.length - index}</span>
+              <span className="history-time">{date.toLocaleString()}</span>
             </div>
+
             <div className="history-hash">{item.txHash}</div>
-            <div style={{ marginTop: '8px', color: 'var(--text)' }}>
-              SEED10: {item.seed10.toUpperCase()}
+
+            <div className="history-meta">
+              <span>Seed 10: {item.seed10.toUpperCase()}</span>
               {item.rule ? (
-                <><br /><span style={{ color: 'var(--mario-green)', textShadow: '1px 1px 0 var(--border)' }}>WIN: {item.rule.name} ({item.rule.payout})</span></>
+                <span className="history-win">
+                  Win: {item.rule.name} ({item.rule.payout})
+                </span>
               ) : (
-                <><br /><span style={{ color: 'var(--mario-red)', textShadow: '1px 1px 0 var(--border)' }}>NO WIN</span></>
+                <span className="history-loss">No Win</span>
               )}
             </div>
-          </div>
+          </article>
         );
       })}
-    </>
+    </div>
   );
 }
 
 function TasksContent({ tasks }: { tasks: Tasks }) {
-  const dailyTasks = TASK_LIST.filter((t) => t.type === 'daily');
-  const weeklyTasks = TASK_LIST.filter((t) => t.type === 'weekly');
+  const dailyTasks = TASK_LIST.filter((task) => task.type === 'daily');
+  const weeklyTasks = TASK_LIST.filter((task) => task.type === 'weekly');
 
   const renderTask = (task: typeof TASK_LIST[0], completed: boolean, current: number) => {
     const progressPercent = Math.min((current / task.target) * 100, 100);
+
     return (
-      <div key={task.id} style={{ margin: '10px 0', padding: '12px', background: 'var(--cloud)', border: '3px solid var(--border)', borderRadius: 0, boxShadow: '0 4px 0 var(--mario-brown-dark), 0 4px 0 var(--border), 4px 4px 0 var(--shadow)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <b style={{ color: 'var(--mario-red)', textShadow: '1px 1px 0 var(--border)' }}>{task.name}</b>
-          {completed
-            ? <span style={{ color: 'var(--mario-green)' }}>✓ COMPLETED</span>
-            : <span style={{ color: 'var(--mario-blue)' }}>+{task.reward} EXP</span>
-          }
+      <article key={task.id} className="task-card">
+        <div className="task-card-header">
+          <b className="task-card-title">{task.name}</b>
+          {completed ? (
+            <span className="task-card-state is-complete">Completed</span>
+          ) : (
+            <span className="task-card-state">+{task.reward} EXP</span>
+          )}
         </div>
-        <div style={{ color: 'var(--text)', fontSize: '7px', marginBottom: '6px' }}>{task.desc}</div>
-        <div style={{ background: 'var(--mario-brown)', height: '8px', border: '2px solid var(--border)', position: 'relative' }}>
-          <div style={{ background: completed ? 'var(--mario-green)' : 'var(--mario-blue)', height: '100%', width: `${progressPercent}%`, transition: 'width 0.3s' }} />
-          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'var(--cloud)', fontSize: '6px', textShadow: '1px 1px 0 var(--border)' }}>
-            {current}/{task.target}
-          </div>
+
+        <div className="task-card-desc">{task.desc}</div>
+
+        <div className="task-progress">
+          <div
+            className={`task-progress-fill${completed ? ' is-complete' : ''}`}
+            style={{ width: `${progressPercent}%` }}
+          />
+          <div className="task-progress-label">{current}/{task.target}</div>
         </div>
-      </div>
+      </article>
     );
   };
 
   return (
-    <>
-      <div style={{ marginBottom: '20px' }}>
-        <h3 style={{ color: 'var(--mario-blue)', textShadow: '1px 1px 0 var(--border)', marginBottom: '10px' }}>DAILY TASKS</h3>
+    <div className="task-groups">
+      <div className="task-group">
+        <h3 className="task-group-title">Daily Tasks</h3>
         {dailyTasks.map((task) => {
           const current = getTaskCurrent(task.id, tasks);
           const completed = tasks.daily.completed[task.id] || false;
           return renderTask(task, completed, current);
         })}
       </div>
-      <div>
-        <h3 style={{ color: 'var(--mario-green)', textShadow: '1px 1px 0 var(--border)', marginBottom: '10px' }}>WEEKLY TASKS</h3>
+
+      <div className="task-group">
+        <h3 className="task-group-title">Weekly Tasks</h3>
         {weeklyTasks.map((task) => {
           const current = getTaskCurrent(task.id, tasks);
           const completed = tasks.weekly.completed[task.id] || false;
           return renderTask(task, completed, current);
         })}
       </div>
-    </>
+    </div>
   );
 }
 
 function AboutContent() {
   return (
-    <div style={{ lineHeight: 2 }}>
-      <p><b style={{ color: 'var(--mario-red)', textShadow: '2px 2px 0 var(--border)' }}>HASH MAHJONG</b> IS A BLOCKCHAIN-BASED MAHJONG GAME.</p>
-      <p style={{ marginTop: '15px' }}><b>HOW TO PLAY:</b></p>
-      <ol style={{ marginLeft: '20px', marginTop: '10px', lineHeight: 2 }}>
-        <li>SEND 0.000001 INJ TO GAME ADDRESS</li>
-        <li>USE LAST 10 HEX OF TX HASH</li>
-        <li>EACH HEX MAPS TO A MAHJONG TILE</li>
-        <li>CHECK 18 WINNING RULES</li>
-      </ol>
-      <p style={{ marginTop: '15px', color: 'var(--text-muted)', fontSize: '8px' }}>
-        ⚠️ ALWAYS VERIFY ADDRESS &amp; NETWORK<br />
-        GAS FEES MAY VARY
+    <div className="about-content">
+      <p>
+        <b>Hash Mahjong</b> turns the last 10 hex characters of your transaction hash into
+        a mahjong hand on Injective EVM.
+      </p>
+
+      <div className="about-block">
+        <h3>How To Play</h3>
+        <ol className="about-list">
+          <li>Send 0.000001 INJ to the game address.</li>
+          <li>Take the last 10 hex characters from the transaction hash.</li>
+          <li>Map each character into a mahjong tile.</li>
+          <li>Check the result against the 18 winning rules.</li>
+        </ol>
+      </div>
+
+      <p className="about-note">
+        Always verify the wallet address and Injective network before sending a
+        transaction. Gas fees can vary.
       </p>
     </div>
   );
 }
 
 const MODAL_TITLES: Record<NonNullable<ModalType>, string> = {
-  menu: 'MENU',
-  rules: 'GAME RULES (18)',
-  history: 'HISTORY',
-  tasks: 'TASKS',
-  about: 'ABOUT',
+  menu: 'Menu',
+  rules: 'Rulebook',
+  history: 'History',
+  tasks: 'Quest Log',
+  about: 'About',
 };
 
 export default function Modal({ type, history, tasks, onClose, onOpen }: ModalProps) {
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
   if (!type) return null;
 
-  const title = MODAL_TITLES[type];
+  let content: ReactNode = null;
 
-  let content;
   switch (type) {
     case 'menu':
       content = (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button className="btn" onClick={() => onOpen('history')} style={{ width: '100%' }}>HISTORY</button>
-          <button className="btn" onClick={() => onOpen('about')} style={{ width: '100%' }}>ABOUT</button>
+        <div className="modal-menu">
+          <button className="btn modal-menu-btn" type="button" onClick={() => onOpen('rules')}>
+            Rulebook
+          </button>
+          <button className="btn modal-menu-btn" type="button" onClick={() => onOpen('tasks')}>
+            Quest Log
+          </button>
+          <button className="btn modal-menu-btn" type="button" onClick={() => onOpen('history')}>
+            History
+          </button>
+          <button className="btn modal-menu-btn" type="button" onClick={() => onOpen('about')}>
+            About
+          </button>
         </div>
       );
       break;
@@ -201,13 +224,21 @@ export default function Modal({ type, history, tasks, onClose, onOpen }: ModalPr
   return (
     <div
       className="modal-overlay active"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
-      <div className="modal">
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div className="modal-header">
-          <h2>{title}</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <div>
+            <span className="modal-kicker">Hash Mahjong</span>
+            <h2 id="modal-title">{MODAL_TITLES[type]}</h2>
+          </div>
+          <button className="modal-close" type="button" onClick={onClose}>
+            Close
+          </button>
         </div>
+
         <div className="modal-content">{content}</div>
       </div>
     </div>

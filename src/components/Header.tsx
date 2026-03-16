@@ -23,17 +23,29 @@ export default function Header({ totalExp, onMenuClick }: HeaderProps) {
 
   return (
     <div className="header-bar">
-      <h1>
-        <span className="word">HASH</span>
-        <span className="word">MAHJONG</span>
-      </h1>
-      <div className="exp-bar-container">
-        <div className="exp-bar-wrapper">
-          <div className="exp-bar-fill" style={{ width: `${expPercent}%` }} />
-          <div className="exp-tooltip">{tooltipText}</div>
+      <div className="brand-lockup">
+        <span className="brand-mark" aria-hidden="true">🀄︎</span>
+        <div className="brand-copy">
+          <h1>
+            <span className="word">Hash</span>
+            <span className="word">Mahjong</span>
+          </h1>
         </div>
-        <span className="exp-label">LV{expLevel}</span>
-        <button className="menu-btn" onClick={onMenuClick}>MENU</button>
+      </div>
+      <div className="exp-bar-container">
+        <div className="exp-meta">
+          <span className="exp-caption">Table Rank</span>
+          <span className="exp-label">LV {expLevel}</span>
+        </div>
+        <div className="exp-actions">
+          <div className="exp-bar-wrapper">
+            <div className="exp-bar-fill" style={{ width: `${expPercent}%` }} />
+            <div className="exp-tooltip">{tooltipText}</div>
+          </div>
+          <button className="menu-btn" type="button" onClick={onMenuClick}>
+            Menu
+          </button>
+        </div>
       </div>
     </div>
   );
