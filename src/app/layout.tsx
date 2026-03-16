@@ -12,6 +12,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        {/* Allow INJ Pass iframe to load */}
+        <meta
+          httpEquiv="Content-Security-Policy"
+          content="frame-src https://www.injpass.com https://injpass.com 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+        />
       </head>
       <body>
         {children}

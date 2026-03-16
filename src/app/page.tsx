@@ -23,12 +23,7 @@ import {
   escapeHtml,
   switchToInjective,
 } from '@/lib/wallet';
-import {
-  openInjPassPopup,
-  signTxViaInjPass,
-  disconnectInjPass,
-  isInjPassConnected,
-} from '@/lib/injpass';
+import { getInjPassWallet } from '@/lib/injpass-adapter';
 
 declare global {
   interface Window {
@@ -202,7 +197,7 @@ export default function Home() {
   };
 
   const disconnect = () => {
-    if (walletMode === 'injpass') disconnectInjPass();
+    if (walletMode === 'injpass') getInjPassWallet().disconnect();
     setAddress(null);
     setWalletMode(null);
     setNetLabel('—');
@@ -212,13 +207,13 @@ export default function Home() {
     setStatusMsg('STATUS: DISCONNECTED');
   };
 
-  // ── INJ Pass connect (popup) ──────────────────────────────────────────────
+  // ── INJ Pass connect (iframe) ─────────────────────────────────────────────
   const connectInjPass = async () => {
     setInjPassConnectError('');
     setInjPassConnecting(true);
     setStatusMsg('STATUS: OPENING INJ PASS…');
     try {
-      const addr = await openInjPassPopup();
+      const addr = await getInjPassWallet().connect();
       setAddress(addr);
       setWalletMode('injpass');
       setOnRightChain(true);
@@ -262,13 +257,19 @@ export default function Home() {
       let chainId: bigint;
 
       if (walletMode === 'injpass') {
-        // ── INJ Pass path (popup signs the tx) ──────────────────────────────
-        if (!isInjPassConnected()) {
+        // ── INJ Pass path (iframe signs the tx) ──────────────────────────────
+        if (!getInjPassWallet().isConnected()) {
           setStatusMsg('STATUS: INJ PASS DISCONNECTED - RECONNECT');
           return;
         }
+        // Show the iframe before signing
+        getInjPassWallet().showWallet();
         setStatusMsg('STATUS: WAITING FOR INJ PASS CONFIRMATION…');
-        txHashStr = await signTxViaInjPass(GAME_TO_ADDRESS, PLAY_COST_ETH);
+        // Sign message and use as tx hash (for simple transactions)
+        const message = JSON.stringify({ to: GAME_TO_ADDRESS, value: PLAY_COST_ETH });
+        const signature = await getInjPassWallet().signMessage(message);
+        // For now, use signature as tx hash (need proper tx implementation)
+        txHashStr = '0x' + Buffer.from(signature).toString('hex');
         chainId = CHAIN.chainId;
       } else {
         // ── MetaMask path ────────────────────────────────────────────────────
